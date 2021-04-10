@@ -39,7 +39,6 @@ declare const paypal_brasil_admin_options_spb: {
     template: paypal_brasil_admin_options_spb.template,
 })
 export default class AdminOptionsSpb extends Vue {
-
     enabled = '';
     title = '';
     titleComplement = '';

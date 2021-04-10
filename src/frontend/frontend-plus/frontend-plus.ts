@@ -8,7 +8,6 @@ class WC_PPP_Brasil_Checkout {
     private instance: any;
     private forceSubmit: boolean;
 
-    private $body: any;
     private $form: any;
     private $overlay: any;
     private $loading: any;
@@ -23,14 +22,6 @@ class WC_PPP_Brasil_Checkout {
         this.log('heading', 'PayPal Plus logging enabled\n');
         this.log('info', 'Backend data:');
         this.log('data', wc_ppp_brasil_data);
-        // Set the body element.
-        this.$body = jQuery(document.body);
-        // Log document.body detection.
-        if (this.$body.length) {
-            this.log('info', 'HTML body detected.');
-        } else {
-            this.log('error', "HTML body didn't detected.");
-        }
         // Set the form element
         this.$form = wc_ppp_brasil_data['order_pay'] ? jQuery('form#order_review') : jQuery('form.checkout.woocommerce-checkout');
         // Log form element
@@ -48,7 +39,7 @@ class WC_PPP_Brasil_Checkout {
         // Listen for input/select changes.
         this.listenInputChanges();
         // Listen for updated checkout.
-        this.$body.on('updated_checkout', this.onUpdatedCheckout);
+        jQuery(document).on('updated_checkout', 'body', this.onUpdatedCheckout);
         // Listen for the form submit.
         this.$form.on('submit', this.onSubmitForm);
         // Listen for change on payment method change.
@@ -58,7 +49,7 @@ class WC_PPP_Brasil_Checkout {
         // Trigger update checkout on order pay page
         if (wc_ppp_brasil_data['order_pay']) {
             jQuery(function ($) {
-                jQuery('body').trigger('updated_checkout');
+                jQuery(document.body).trigger('updated_checkout');
             });
         }
     }
@@ -155,7 +146,7 @@ class WC_PPP_Brasil_Checkout {
         }
 
         this.log('info', 'Updating checkout...');
-        this.$body.trigger('update_checkout');
+        jQuery(document.body).trigger('update_checkout');
     };
 
     /**
