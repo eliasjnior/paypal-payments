@@ -6,3 +6,4 @@ assets/dist/
 
 # Others
 .DS_Store
+*.zip
