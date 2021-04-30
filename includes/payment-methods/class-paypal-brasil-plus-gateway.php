@@ -325,7 +325,6 @@ class PayPal_Brasil_Plus_Gateway extends PayPal_Brasil_Gateway {
 			// execute the order here.
 			$execution = $this->execute_payment( $order, $payment_id, $payer_id );
 			$sale      = $execution["transactions"][0]["related_resources"][0]["sale"];
-			// @todo: change to correct meta key
 			update_post_meta( $order_id, 'wc_ppp_brasil_sale_id', $sale['id'] );
 			update_post_meta( $order_id, 'wc_ppp_brasil_sale', $sale );
 			$installments = 1;
@@ -362,6 +361,9 @@ class PayPal_Brasil_Plus_Gateway extends PayPal_Brasil_Gateway {
 			}
 		} catch ( PayPal_Brasil_API_Exception $ex ) {
 			$data = $ex->getData();
+
+			$this->log( "Execute payment error: " + json_encode($data) );
+
 			switch ( $data['name'] ) {
 				// Repeat the execution
 				case 'INTERNAL_SERVICE_ERROR':

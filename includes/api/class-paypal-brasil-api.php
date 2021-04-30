@@ -636,11 +636,15 @@ class PayPal_Brasil_API {
 			}
 
 			// Don't log access token request.
-			$raw_response = $request['http_response']->get_response_object()->raw;
-			if ( ! preg_match( '/\/v1\/oauth2\/token$/', $url ) ) {
+			$response_object = $request['http_response']->get_response_object();
+			$raw_response = $response_object->raw;
+			$status_code = $response_object->status_code;
+			if ( ! (preg_match( '/\/v1\/oauth2\/token$/', $url ) && $status_code >= 200 && $status_code <= 299 )) {
 				$this->gateway->log( "Resposta da requisição:\n" . json_encode( $body,
 						JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES ) . "\n" );
 				$this->gateway->log( "Resposta da requisição completa:\n" . $raw_response . "\n" );
+			} else {
+				$this->gateway->log( "Resposta com status code {$status_code} ocultado por questões de segurança.\n");
 			}
 		}
 
