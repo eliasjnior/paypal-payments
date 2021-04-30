@@ -77,7 +77,7 @@ class PayPal_Brasil_Plus_Gateway extends PayPal_Brasil_Gateway {
 		), 20 );
 
 		// Enqueue scripts.
-		add_action( 'wp_enqueue_scripts', array( $this, 'checkout_scripts' ), 20 );
+		add_action( 'wp_enqueue_scripts', array( $this, 'checkout_scripts' ), 0 );
 		add_action( 'admin_enqueue_scripts', array( $this, 'admin_scripts' ) );
 	}
 

@@ -90,7 +90,7 @@ class PayPal_Brasil_SPB_Gateway extends PayPal_Brasil_Gateway {
 
 		// Enqueue scripts.
 		add_action( 'admin_enqueue_scripts', array( $this, 'admin_scripts' ) );
-		add_action( 'wp_enqueue_scripts', array( $this, 'checkout_scripts' ) );
+		add_action( 'wp_enqueue_scripts', array( $this, 'checkout_scripts' ), 0 );
 
 		// Clear SPB session data when refresh fragments.
 		add_action( 'woocommerce_checkout_update_order_review', array( $this, 'clear_spb_session_data' ) );
