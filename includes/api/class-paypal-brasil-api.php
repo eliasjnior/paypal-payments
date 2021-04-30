@@ -118,7 +118,7 @@ class PayPal_Brasil_API {
 
 		$data = 'grant_type=client_credentials';
 
-		$response      = $this->do_request( $url, 'POST', $data, $headers, false );
+		$response      = $this->do_request( 'GET_ACCESS_TOKEN', $url, 'POST', $data, $headers, false );
 		$response_body = json_decode( wp_remote_retrieve_body( $response ), true );
 
 		// Check if is WP_Error
@@ -160,7 +160,7 @@ class PayPal_Brasil_API {
 		}
 
 		// Get response.
-		$response      = $this->do_request( $url, 'POST', $data, $headers );
+		$response      = $this->do_request( 'CREATE_PAYMENT', $url, 'POST', $data, $headers );
 		$response_body = json_decode( wp_remote_retrieve_body( $response ), true );
 
 		// Check if is WP_Error
@@ -197,7 +197,7 @@ class PayPal_Brasil_API {
 		}
 
 		// Get response.
-		$response      = $this->do_request( $url, 'GET', array(), $headers );
+		$response      = $this->do_request( 'GET_PAYMENT', $url, 'GET', array(), $headers );
 		$response_body = json_decode( wp_remote_retrieve_body( $response ), true );
 
 		// Check if is WP_Error
@@ -240,7 +240,7 @@ class PayPal_Brasil_API {
 		}
 
 		// Get response.
-		$response      = $this->do_request( $url, 'POST', $data, $headers );
+		$response      = $this->do_request( 'EXECUTE_PAYMENT', $url, 'POST', $data, $headers );
 		$response_body = json_decode( wp_remote_retrieve_body( $response ), true );
 
 		// Check if is WP_Error
@@ -276,7 +276,7 @@ class PayPal_Brasil_API {
 		}
 
 		// Get response.
-		$response      = $this->do_request( $url, 'PATCH', $data, $headers );
+		$response      = $this->do_request( 'UPDATE_PAYMENT', $url, 'PATCH', $data, $headers );
 		$response_body = json_decode( wp_remote_retrieve_body( $response ), true );
 
 		// Check if is WP_Error
@@ -323,7 +323,7 @@ class PayPal_Brasil_API {
 		);
 
 		// Get response.
-		$response      = $this->do_request( $url, 'POST', $data,
+		$response      = $this->do_request( 'CREATE_BILLING_AGREEMENT_TOKEN', $url, 'POST', $data,
 			array( 'PayPal-Partner-Attribution-Id' => $this->bn_code['reference'] ) );
 		$response_body = json_decode( wp_remote_retrieve_body( $response ), true );
 
@@ -351,7 +351,7 @@ class PayPal_Brasil_API {
 		);
 
 		// Get response.
-		$response      = $this->do_request( $url, 'POST', $data,
+		$response      = $this->do_request( 'CREATE_BILLING_AGREEMENT', $url, 'POST', $data,
 			array( 'PayPal-Partner-Attribution-Id' => $this->bn_code['reference'] ) );
 		$response_body = json_decode( wp_remote_retrieve_body( $response ), true );
 
@@ -389,7 +389,7 @@ class PayPal_Brasil_API {
 		);
 
 		// Get response.
-		$response      = $this->do_request( $url, 'POST', $data,
+		$response      = $this->do_request( 'GET_CALCULATE_FINANCING', $url, 'POST', $data,
 			array( 'PayPal-Partner-Attribution-Id' => $this->bn_code['reference'] ) );
 		$response_body = json_decode( wp_remote_retrieve_body( $response ), true );
 
@@ -423,7 +423,7 @@ class PayPal_Brasil_API {
 		$url = $this->get_base_url() . '/notifications/verify-webhook-signature';
 
 		// Get response.
-		$response      = $this->do_request( $url, 'POST', $data,
+		$response      = $this->do_request( 'VERIFY_SIGNATURE', $url, 'POST', $data,
 			array( 'PayPal-Partner-Attribution-Id' => $this->bn_code['ec'] ) );
 		$response_body = json_decode( wp_remote_retrieve_body( $response ), true );
 
@@ -455,7 +455,7 @@ class PayPal_Brasil_API {
 		$url = $this->get_base_url() . '/notifications/webhooks';
 
 		// Get response.
-		$response      = $this->do_request( $url, 'GET', array(),
+		$response      = $this->do_request( 'GET_WEBHOOKS', $url, 'GET', array(),
 			array( 'PayPal-Partner-Attribution-Id' => $this->bn_code['ec'] ) );
 		$response_body = json_decode( wp_remote_retrieve_body( $response ), true );
 
@@ -502,7 +502,7 @@ class PayPal_Brasil_API {
 		}
 
 		// Get response.
-		$response      = $this->do_request( $url, 'POST', $data,
+		$response      = $this->do_request( 'CREATE_WEBHOOK', $url, 'POST', $data,
 			array( 'PayPal-Partner-Attribution-Id' => $this->bn_code['ec'] ) );
 		$response_body = json_decode( wp_remote_retrieve_body( $response ), true );
 
@@ -550,7 +550,7 @@ class PayPal_Brasil_API {
 		}
 
 		// Get response.
-		$response      = $this->do_request( $url, 'POST', $data,
+		$response      = $this->do_request( 'REFUND_PAYMENT', $url, 'POST', $data,
 			array( 'PayPal-Partner-Attribution-Id' => $this->bn_code['ec'] ) );
 		$response_body = json_decode( wp_remote_retrieve_body( $response ), true );
 
@@ -582,7 +582,7 @@ class PayPal_Brasil_API {
 	 * @throws PayPal_Brasil_API_Exception
 	 * @throws PayPal_Brasil_Connection_Exception
 	 */
-	protected function do_request( $url, $method = 'POST', $data = array(), $headers = array(), $log = true ) {
+	protected function do_request( $name, $url, $method = 'POST', $data = array(), $headers = array(), $log = true ) {
 
 		// Default headers.
 		$headers = wp_parse_args( array(
@@ -619,15 +619,15 @@ class PayPal_Brasil_API {
 
 		// Only log response when $log exists.
 		if ( isset( $params['body'] ) ) {
-			$this->gateway->log( "Fazendo requisição ({$method}) para {$url}:\n" . $data . "\n" );
+			$this->gateway->log( "[{$name}] Fazendo requisição ({$method}) para {$url}:\n" . $data . "\n" );
 		} else {
-			$this->gateway->log( "Fazendo requisição ({$method}) para {$url}\n" );
+			$this->gateway->log( "[{$name}] Fazendo requisição ({$method}) para {$url}\n" );
 		}
 
 		$request = wp_safe_remote_request( $url, $params );
 
 		if ( is_wp_error( $request ) ) {
-			$this->gateway->log( "Erro HTTP ao fazer a requisição.\n" );
+			$this->gateway->log( "[{$name}] Erro HTTP ao fazer a requisição ({$method}) para {$url}\n" );
 		} else {
 			// Only log response when $log exists.
 			$body = json_decode( wp_remote_retrieve_body( $request ), true );
@@ -640,11 +640,11 @@ class PayPal_Brasil_API {
 			$raw_response = $response_object->raw;
 			$status_code = $response_object->status_code;
 			if ( ! (preg_match( '/\/v1\/oauth2\/token$/', $url ) && $status_code >= 200 && $status_code <= 299 )) {
-				$this->gateway->log( "Resposta da requisição:\n" . json_encode( $body,
+				$this->gateway->log( "[{$name}] Resposta da requisição ({$method}) para {$url}:\n" . json_encode( $body,
 						JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES ) . "\n" );
-				$this->gateway->log( "Resposta da requisição completa:\n" . $raw_response . "\n" );
+				$this->gateway->log( "[{$name}] Resposta da requisição ({$method}) para {$url} completa:\n" . $raw_response . "\n" );
 			} else {
-				$this->gateway->log( "Resposta com status code {$status_code} ocultado por questões de segurança.\n");
+				$this->gateway->log( "[{$name}] Resposta da requisição ({$method}) para {$url} com status code {$status_code} ocultado por questões de segurança.\n");
 			}
 		}
 
