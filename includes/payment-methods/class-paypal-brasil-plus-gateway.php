@@ -347,13 +347,20 @@ class PayPal_Brasil_Plus_Gateway extends PayPal_Brasil_Gateway {
 					break;
 			}
 			if ( $result_success ) {
+				// Add PayPal Discount
+				$charged_amount = floatval($execution['transactions'][0]['amount']['total']);
+				
+				if ( $order->get_total() !== $charged_amount ) {	
+					$this->wc_order_add_discount( $order_id, 'Desconto PayPal', $order->get_total() - $charged_amount );
+				}
+
 				// Remember user cards
 				if ( is_user_logged_in() ) {
 					update_user_meta( get_current_user_id(), 'wc_ppp_brasil_remembered_cards', $remember_cards );
 				}
 				do_action( 'wc_ppp_brasil_process_payment_success', $order_id );
 
-				// Return the success URL.s
+				// Return the success URL
 				return array(
 					'result'   => 'success',
 					'redirect' => $this->get_return_url( $order ),
@@ -390,6 +397,32 @@ class PayPal_Brasil_Plus_Gateway extends PayPal_Brasil_Gateway {
 
 		return null;
 	}
+
+	private function wc_order_add_discount( $order_id, $title, $amount ) {
+    $order    = wc_get_order($order_id);
+    $subtotal = $order->get_subtotal();
+    $item     = new WC_Order_Item_Fee();
+
+    if ( strpos($amount, '%') !== false ) {
+        $percentage = (float) str_replace( array('%', ' '), array('', ''), $amount );
+        $percentage = $percentage > 100 ? -100 : -$percentage;
+        $discount   = $percentage * $subtotal / 100;
+    } else {
+        $discount = (float) str_replace( ' ', '', $amount );
+        $discount = $discount > $subtotal ? -$subtotal : -$discount;
+    }
+
+    $item->set_tax_class( $tax_class );
+    $item->set_name( $title );
+    $item->set_amount( $discount );
+    $item->set_total( $discount );
+		$item->set_taxes( false );
+    $item->save();
+
+    $order->add_item( $item );
+    $order->calculate_totals();
+    $order->save();
+}
 
 	/**
 	 * Process the refund for an order.
