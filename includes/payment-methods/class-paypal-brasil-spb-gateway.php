@@ -1118,9 +1118,9 @@ class PayPal_Brasil_SPB_Gateway extends PayPal_Brasil_Gateway {
 				wc_add_notice( __( 'O método de pagamento não foi detectado corretamente. Por favor, tente novamente.',
 					'paypal-brasil-para-woocommerce' ), 'error' );
 			}
-		}
-		catch ( PayPal_Brasil_API_Exception $ex ) {
+		} catch ( PayPal_Brasil_API_Exception $ex ) {
 			$data = $ex->getData();
+
 			switch ( $data['name'] ) {
 				// Repeat the execution
 				case 'INTERNAL_SERVICE_ERROR':
@@ -1456,10 +1456,6 @@ class PayPal_Brasil_SPB_Gateway extends PayPal_Brasil_Gateway {
 			return;
 		}
 
-		if ( ! $this->is_credentials_validated() ) {
-			return;
-		}
-
 		$enqueues  = array();
 		$localizes = array();
 
@@ -1475,13 +1471,17 @@ class PayPal_Brasil_SPB_Gateway extends PayPal_Brasil_Gateway {
 
 		// Enqueue shared.
 		$enqueues[]  = array( 'underscore' );
-		$enqueues[]  = array(
-			'paypal-brasil-shared',
-			plugins_url( 'assets/dist/js/frontend-shared.js', PAYPAL_PAYMENTS_MAIN_FILE ),
-			array(),
-			PAYPAL_PAYMENTS_VERSION,
-			true
-		);
+
+		if( is_checkout() || $this->is_shortcut_enabled() ) {
+			$enqueues[]  = array(
+				'paypal-brasil-shared',
+				plugins_url( 'assets/dist/js/frontend-shared.js', PAYPAL_PAYMENTS_MAIN_FILE ),
+				array(),
+				PAYPAL_PAYMENTS_VERSION,
+				true
+			);
+		}
+
 		$localizes[] = array(
 			'paypal-brasil-shared',
 			'paypal_brasil_settings',
@@ -1507,49 +1507,51 @@ class PayPal_Brasil_SPB_Gateway extends PayPal_Brasil_Gateway {
 			)
 		);
 
-		if ( $this->is_reference_transaction() ) { // reference transaction checkout
-			$paypal_args['vault'] = 'true';
-			$enqueues[]           = array(
-				'paypal-brasil-reference-transaction',
-				plugins_url( 'assets/dist/js/frontend-reference-transaction.js', PAYPAL_PAYMENTS_MAIN_FILE ),
-				array(),
-				PAYPAL_PAYMENTS_VERSION,
-				true
-			);
-			ob_start();
-			wc_print_notice( __( 'Você cancelou a criação do termo de pagamento.', 'paypal-brasil-para-woocommerce' ),
-				'error' );
-			$cancel_message = ob_get_clean();
+		if( is_checkout() ) {
+			if ( $this->is_reference_transaction() ) { // reference transaction checkout
+				$paypal_args['vault'] = 'true';
+				$enqueues[]           = array(
+					'paypal-brasil-reference-transaction',
+					plugins_url( 'assets/dist/js/frontend-reference-transaction.js', PAYPAL_PAYMENTS_MAIN_FILE ),
+					array(),
+					PAYPAL_PAYMENTS_VERSION,
+					true
+				);
+				ob_start();
+				wc_print_notice( __( 'Você cancelou a criação do termo de pagamento.', 'paypal-brasil-para-woocommerce' ),
+					'error' );
+				$cancel_message = ob_get_clean();
 
-			$localizes[] = array(
-				'paypal-brasil-reference-transaction',
-				'paypal_brasil_reference_transaction_settings',
-				array(
-					'cancel_message' => $cancel_message,
-					'uuid'           => $this->get_uuid(),
-				)
-			);
+				$localizes[] = array(
+					'paypal-brasil-reference-transaction',
+					'paypal_brasil_reference_transaction_settings',
+					array(
+						'cancel_message' => $cancel_message,
+						'uuid'           => $this->get_uuid(),
+					)
+				);
 
-		} elseif ( ! $this->is_processing_shortcut() ) { // spb checkout
-			$enqueues[] = array(
-				'paypal-brasil-spb',
-				plugins_url( 'assets/dist/js/frontend-spb.js', PAYPAL_PAYMENTS_MAIN_FILE ),
-				array(),
-				PAYPAL_PAYMENTS_VERSION,
-				true
-			);
+			} else if ( ! $this->is_processing_shortcut() ) { // spb checkout
+				$enqueues[] = array(
+					'paypal-brasil-spb',
+					plugins_url( 'assets/dist/js/frontend-spb.js', PAYPAL_PAYMENTS_MAIN_FILE ),
+					array(),
+					PAYPAL_PAYMENTS_VERSION,
+					true
+				);
 
-			ob_start();
-			wc_print_notice( __( 'Você cancelou o pagamento.', 'paypal-brasil-para-woocommerce' ), 'error' );
-			$cancel_message = ob_get_clean();
+				ob_start();
+				wc_print_notice( __( 'Você cancelou o pagamento.', 'paypal-brasil-para-woocommerce' ), 'error' );
+				$cancel_message = ob_get_clean();
 
-			$localizes[] = array(
-				'paypal-brasil-spb',
-				'paypal_brasil_spb_settings',
-				array(
-					'cancel_message' => $cancel_message,
-				)
-			);
+				$localizes[] = array(
+					'paypal-brasil-spb',
+					'paypal_brasil_spb_settings',
+					array(
+						'cancel_message' => $cancel_message,
+					)
+				);
+			}
 		}
 
 		// Shortcut
@@ -1578,8 +1580,10 @@ class PayPal_Brasil_SPB_Gateway extends PayPal_Brasil_Gateway {
 			);
 		}
 
-		wp_enqueue_script( 'paypal-brasil-scripts', add_query_arg( $paypal_args, 'https://www.paypal.com/sdk/js' ),
+		if( is_checkout() || $this->is_shortcut_enabled() ) {
+			wp_enqueue_script( 'paypal-brasil-scripts', add_query_arg( $paypal_args, 'https://www.paypal.com/sdk/js' ),
 			array(), null, true );
+		}
 
 		foreach ( $enqueues as $enqueue ) {
 			call_user_func_array( 'wp_enqueue_script', $enqueue );
