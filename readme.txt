@@ -148,10 +148,15 @@ Caso tenha alguma dúvida ou dificuldade na utilização do plugin acesse a seç
 = 1.3.0 =
 * Adicionado suporte para países sem estados.
 
+= 1.4.0 =
+* Atualizado dependências.
+* Melhorado sistema de logs.
+
 == Upgrade Notice ==
 
-= 1.3.0 =
-* Adicionado suporte para países sem estados.
+= 1.4.0 =
+* Atualizado dependências.
+* Melhorado sistema de logs.
 
 == Screenshots ==
 
