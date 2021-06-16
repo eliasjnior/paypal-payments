@@ -334,11 +334,12 @@ class PayPal_Brasil_Plus_Gateway extends PayPal_Brasil_Gateway {
 			update_post_meta( $order_id, 'wc_ppp_brasil_installments', $installments );
 			update_post_meta( $order_id, 'wc_ppp_brasil_sandbox', $this->mode );
 			$result_success = false;
+			$payment_completed = false;
 			switch ( $sale['state'] ) {
 				case 'completed';
 					$order->add_order_note( sprintf( __( 'Pagamento processado pelo PayPal. ID da transação: %s', 'paypal-brasil-para-woocommerce' ), $sale['id'] ) );
-					$order->payment_complete();
 					$result_success = true;
+					$payment_completed = true;
 					break;
 				case 'pending':
 					wc_reduce_stock_levels( $order_id );
@@ -359,6 +360,10 @@ class PayPal_Brasil_Plus_Gateway extends PayPal_Brasil_Gateway {
 					update_user_meta( get_current_user_id(), 'wc_ppp_brasil_remembered_cards', $remember_cards );
 				}
 				do_action( 'wc_ppp_brasil_process_payment_success', $order_id );
+
+				if( $payment_completed ) {
+					$order->payment_complete();
+				}
 
 				// Return the success URL
 				return array(
