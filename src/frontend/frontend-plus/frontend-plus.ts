@@ -200,10 +200,7 @@ class WC_PPP_Brasil_Checkout {
             }
         } catch (error) {
             this.log('error', 'There was some error creating the iframe.');
-            this.log('info', 'Data received:');
-            this.log('data', inputData);
-            this.log('info', 'Error:');
-            this.log('data', error);
+            this.log('data', inputData, error);
         }
     };
 
@@ -286,11 +283,13 @@ class WC_PPP_Brasil_Checkout {
             // Check if is iframe error handling or is just an action.
             if (typeof message['cause'] !== 'undefined') {
                 this.log('error', 'This message is an iframe error!');
-                this.treatIframeError(message);
+                this.treatIframeError(message['cause']);
             } else {
                 this.treatIframeAction(message);
             }
-        } catch (err) {
+        } catch (error) {
+            this.log('error', 'Event could not be parsed', error)
+            this.log('data', event)
         }
     };
 
@@ -334,9 +333,6 @@ class WC_PPP_Brasil_Checkout {
     treatIframeError(message: any) {
         const cause = message.replace(/[^\sA-Za-z0-9_]+/g, '');
         switch (cause) {
-            case 'CHECK_ENTRY':
-                this.showMessage('<div class="woocommerce-error">' + wc_ppp_brasil_data['messages']['check_entry'] + '</div>');
-                break;
             default:
                 this.log(`This message won't be treated, so form will be submitted.`);
                 this.$inputError.val(cause);

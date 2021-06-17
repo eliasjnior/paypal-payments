@@ -227,6 +227,10 @@ class PayPal_Brasil_Plus_Gateway extends PayPal_Brasil_Gateway {
 				// Refresh totals in frontend.
 				WC()->session->set( 'refresh_totals', true );
 
+				$order->add_order_note( 'Houve uma divergência de valor do carrinho e o valor do pedido.' );
+				$order->update_status( 'wc-failed' );
+				$order->save();
+
 				return null;
 			}
 		}
@@ -234,6 +238,9 @@ class PayPal_Brasil_Plus_Gateway extends PayPal_Brasil_Gateway {
 		// Check if is a iframe error
 		if ( isset( $_POST['wc-ppp-brasil-error'] ) && ! empty( $_POST['wc-ppp-brasil-error'] ) ) {
 			switch ( $_POST['wc-ppp-brasil-error'] ) {
+				case 'CHECK_ENTRY':
+					wc_add_notice( __( 'Os dados do cartão de crédito não são válidos. Por favor tente novamente.', 'paypal-brasil-para-woocommerce' ), 'error' );
+					break;
 				case 'CARD_ATTEMPT_INVALID':
 					wc_add_notice( __( 'Número de tentativas excedidas, por favor tente novamente. Se o erro persistir entre em contato.', 'paypal-brasil-para-woocommerce' ), 'error' );
 					break;
@@ -264,13 +271,23 @@ class PayPal_Brasil_Plus_Gateway extends PayPal_Brasil_Gateway {
 			WC()->session->set( 'refresh_totals', true );
 			do_action( 'wc_ppp_brasil_process_payment_error', 'IFRAME_ERROR', $order_id, $_POST['wc-ppp-brasil-error'] );
 
+			$error_type = $_POST['wc-ppp-brasil-error'];
+			$order->add_order_note( "O pagamento não pode ser processado pelo PayPal: <b>$error_type</b>");
+			$order->update_status( 'wc-failed' );
+			$order->save();
+
 			return null;
 		}
+
 		// Prevent submit any dummy data.
 		if ( WC()->session->get( 'wc-ppp-brasil-dummy-data' ) === true ) {
 			wc_add_notice( __( 'You are not allowed to do that.', 'paypal-brasil-para-woocommerce' ), 'error' );
 			// Set refresh totals to trigger update_checkout on frontend.
 			WC()->session->set( 'refresh_totals', true );
+
+			$order->add_order_note( 'Foi realizado uma tentativa de pagamento sem preencher os dados do cartão.' );
+			$order->update_status( 'wc-failed' );
+			$order->save();
 
 			return null;
 		}
@@ -284,8 +301,13 @@ class PayPal_Brasil_Plus_Gateway extends PayPal_Brasil_Gateway {
 			WC()->session->set( 'refresh_totals', true );
 			do_action( 'wc_ppp_brasil_process_payment_error', 'SESSION_ERROR', $order_id, null );
 
+			$order->add_order_note( 'Houve um erro interno ao processar o pagamento. Não foi identificado o ID de pagamento.' );
+			$order->update_status( 'wc-failed' );
+			$order->save();
+
 			return null;
 		}
+
 		try {
 			$iframe_data    = isset( $_POST['wc-ppp-brasil-data'] ) ? json_decode( wp_unslash( $_POST['wc-ppp-brasil-data'] ), true ) : null;
 			$response_data  = isset( $_POST['wc-ppp-brasil-response'] ) ? json_decode( wp_unslash( $_POST['wc-ppp-brasil-response'] ), true ) : null;
@@ -299,8 +321,13 @@ class PayPal_Brasil_Plus_Gateway extends PayPal_Brasil_Gateway {
 				WC()->session->set( 'refresh_totals', true );
 				do_action( 'wc_ppp_brasil_process_payment_error', 'PAYER_ID', $order_id, null );
 
+				$order->add_order_note( 'Não conseguimos interceptar o pagamento para processamento. Possivelmente há um erro de integração na loja, entre em contato com o suporte.' );
+				$order->update_status( 'wc-failed' );
+				$order->save();
+
 				return null;
 			}
+
 			// Check if the payment id
 			if ( empty( $payer_id ) ) {
 				wc_add_notice( __( 'Ocorreu um erro inesperado, por favor tente novamente. Se o erro persistir entre em contato. (#67)', 'paypal-brasil-para-woocommerce' ), 'error' );
@@ -308,8 +335,13 @@ class PayPal_Brasil_Plus_Gateway extends PayPal_Brasil_Gateway {
 				WC()->session->set( 'refresh_totals', true );
 				do_action( 'wc_ppp_brasil_process_payment_error', 'PAYER_ID', $order_id, null );
 
+				$order->add_order_note( 'O ID de pagamento está em branco. Entre em contato com o suporte.' );
+				$order->update_status( 'wc-failed' );
+				$order->save();
+
 				return null;
 			}
+
 			// Check if the payment id equal to stored
 			if ( $payment_id !== $iframe_data['payment_id'] ) {
 				wc_add_notice( __( 'Houve um erro com a sessão do usuário. Por favor, tente novamente. Se o erro persistir, entre em contato.', 'paypal-brasil-para-woocommerce' ), 'error' );
@@ -319,6 +351,10 @@ class PayPal_Brasil_Plus_Gateway extends PayPal_Brasil_Gateway {
 					'stored_payment_id' => $payment_id,
 					'iframe_payment_id' => $iframe_data['payment_id']
 				) );
+
+				$order->add_order_note( 'Houve uma divergência na sessão do usuário. Entre em contato com o suporte.' );
+				$order->update_status( 'wc-failed' );
+				$order->save();
 
 				return null;
 			}
@@ -333,8 +369,10 @@ class PayPal_Brasil_Plus_Gateway extends PayPal_Brasil_Gateway {
 			}
 			update_post_meta( $order_id, 'wc_ppp_brasil_installments', $installments );
 			update_post_meta( $order_id, 'wc_ppp_brasil_sandbox', $this->mode );
+
 			$result_success = false;
 			$payment_completed = false;
+
 			switch ( $sale['state'] ) {
 				case 'completed';
 					$order->add_order_note( sprintf( __( 'Pagamento processado pelo PayPal. ID da transação: %s', 'paypal-brasil-para-woocommerce' ), $sale['id'] ) );
@@ -347,6 +385,7 @@ class PayPal_Brasil_Plus_Gateway extends PayPal_Brasil_Gateway {
 					$result_success = true;
 					break;
 			}
+
 			if ( $result_success ) {
 				// Add PayPal Discount
 				$charged_amount = floatval($execution['transactions'][0]['amount']['total']);
@@ -393,12 +432,22 @@ class PayPal_Brasil_Plus_Gateway extends PayPal_Brasil_Gateway {
 					wc_add_notice( __( 'O seu pagamento não foi aprovado, por favor tente novamente.', 'paypal-brasil-para-woocommerce' ), 'error' );
 					break;
 			}
+
 			// Set refresh totals to trigger update_checkout on frontend.
 			WC()->session->set( 'refresh_totals', true );
 			do_action( 'wc_ppp_brasil_process_payment_error', 'API_EXCEPTION', $order_id, $data['name'] );
 
+			$error_type = $data['name'];
+			$order->add_order_note( "Houve um erro ao executar o pagamento pelo PayPal: <b>$error_type</b>" );
+			$order->update_status( 'wc-failed' );
+			$order->save();
+
 			return null;
 		}
+
+		$order->add_order_note( 'Houve um erro desconhecido ao tentar processar o pagamento pelo PayPal. Entre em contato com o suporte.' );
+		$order->update_status( 'wc-failed' );
+		$order->save();
 
 		return null;
 	}
