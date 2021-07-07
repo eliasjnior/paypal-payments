@@ -10,17 +10,15 @@ class PaypalPaymentsSpb extends PaypalPayments {
     constructor() {
         // Needs to call super.
         super();
-        // Store jQuery variables.
-        const $body = jQuery('body');
         // Update checkout button when WooCommerce checkout is updated.
-        $body.on('updated_checkout', this.updateCheckoutButton);
+        jQuery(document).on('updated_checkout', 'body', this.updateCheckoutButton);
         // Update checkout button when payment method is changed.
         jQuery('form.woocommerce-checkout, form#order_review').on('change', '[name=payment_method]', this.updateCheckoutButton);
         // Render button when WooCommerce checkout is updated.
-        $body.on('updated_checkout', this.renderPayPalButton);
+        jQuery(document).on('updated_checkout', 'body', this.renderPayPalButton);
         // If is order pay page, trigger checkout update.
         if (paypal_brasil_settings.is_order_pay_page) {
-            jQuery('body').trigger('updated_checkout');
+            jQuery(document.body).trigger('updated_checkout');
         }
     }
 
