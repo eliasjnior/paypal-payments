@@ -213,27 +213,6 @@ class PayPal_Brasil_Plus_Gateway extends PayPal_Brasil_Gateway {
 	 */
 	public function process_payment( $order_id, $force = false ) {
 		$order      = wc_get_order( $order_id );
-		$session    = WC()->session->get( 'wc-ppp-brasil-payment-id' );
-		$payment_id = $session['payment_id'];
-
-		// First check if is paying the same cart
-		if ( empty( get_query_var( 'order-pay' ) ) ) {
-			$current_cart_hash = $order->get_cart_hash();
-			$session_cart_hash = WC()->session->get( 'paypal_brasil-cart_hash' );
-			if ( $current_cart_hash !== $session_cart_hash ) {
-				// Add notice.
-				wc_add_notice( __( 'Identificamos uma diferença entre o valor do carrinho e o valor do pedido. Por favor refaça o processo de compra.', 'paypal-brasil-para-woocommerce' ), 'error' );
-
-				// Refresh totals in frontend.
-				WC()->session->set( 'refresh_totals', true );
-
-				$order->add_order_note( 'Houve uma divergência de valor do carrinho e o valor do pedido.' );
-				$order->update_status( 'wc-failed' );
-				$order->save();
-
-				return null;
-			}
-		}
 
 		// Check if is a iframe error
 		if ( isset( $_POST['wc-ppp-brasil-error'] ) && ! empty( $_POST['wc-ppp-brasil-error'] ) ) {
@@ -291,28 +270,28 @@ class PayPal_Brasil_Plus_Gateway extends PayPal_Brasil_Gateway {
 
 			return null;
 		}
-		// Check the payment id
-		/**
-		 * This error is caused by multiple requests that
-		 */
-		if ( ! $payment_id ) {
-			wc_add_notice( __( 'Houve um erro interno ao processar o pagamento. Por favor, tente novamente. Se o erro persistir, entre em contato.', 'paypal-brasil-para-woocommerce' ), 'error' );
-			// Set refresh totals to trigger update_checkout on frontend.
-			WC()->session->set( 'refresh_totals', true );
-			do_action( 'wc_ppp_brasil_process_payment_error', 'SESSION_ERROR', $order_id, null );
-
-			$order->add_order_note( 'Houve um erro interno ao processar o pagamento. Não foi identificado o ID de pagamento.' );
-			$order->update_status( 'wc-failed' );
-			$order->save();
-
-			return null;
-		}
 
 		try {
 			$iframe_data    = isset( $_POST['wc-ppp-brasil-data'] ) ? json_decode( wp_unslash( $_POST['wc-ppp-brasil-data'] ), true ) : null;
 			$response_data  = isset( $_POST['wc-ppp-brasil-response'] ) ? json_decode( wp_unslash( $_POST['wc-ppp-brasil-response'] ), true ) : null;
 			$payer_id       = $response_data['payer_id'];
+			$payment_id			= $iframe_data['payment_id'];
 			$remember_cards = $response_data['remembered_cards_token'];
+
+			// Check the payment id
+			if ( empty( $payment_id ) ) {
+				wc_add_notice( __( 'Não foi possível identificar o ID de pagamento. Atualize a página e tente novamente.', 'paypal-brasil-para-woocommerce' ), 'error' );
+				// Set refresh totals to trigger update_checkout on frontend.
+				WC()->session->set( 'refresh_totals', true );
+				do_action( 'wc_ppp_brasil_process_payment_error', 'SESSION_ERROR', $order_id, null );
+	
+				$order->add_order_note( 'Houve um erro interno ao processar o pagamento. Não foi identificado o ID de pagamento.' );
+				$order->update_status( 'wc-failed' );
+				$order->save();
+	
+				return null;
+			}
+
 			// Check if there is no $response data, so iframe wasn't processed
 			if ( empty( $response_data ) ) {
 				$this->log( "The iframe could not be intercepted to process payment.\n" );
@@ -342,40 +321,77 @@ class PayPal_Brasil_Plus_Gateway extends PayPal_Brasil_Gateway {
 				return null;
 			}
 
-			// Check if the payment id equal to stored
-			if ( $payment_id !== $iframe_data['payment_id'] ) {
-				wc_add_notice( __( 'Houve um erro com a sessão do usuário. Por favor, tente novamente. Se o erro persistir, entre em contato.', 'paypal-brasil-para-woocommerce' ), 'error' );
+			// Get the payment from PayPal
+			$payment = $this->api->get_payment( $payment_id );
+			
+			// Validate the cart hash
+			if( $payment['transactions'][0]['custom'] !== $order->get_cart_hash() ) {
+				wc_add_notice( __('Houve um erro na validação do pedido. Atualize a página e tente novamente.', 'paypal-brasil-para-woocommerce'), 'error' );
+
 				// Set refresh totals to trigger update_checkout on frontend.
 				WC()->session->set( 'refresh_totals', true );
-				do_action( 'wc_ppp_brasil_process_payment_error', 'PAYMENT_ID', $order_id, array(
-					'stored_payment_id' => $payment_id,
-					'iframe_payment_id' => $iframe_data['payment_id']
-				) );
 
-				$order->add_order_note( 'Houve uma divergência na sessão do usuário. Entre em contato com o suporte.' );
+				$order->add_order_note( 'Houve uma tentativa de pagar um carrinho diferente da aprovação.' );
 				$order->update_status( 'wc-failed' );
 				$order->save();
 
 				return null;
 			}
+
 			// execute the order here.
 			$execution = $this->execute_payment( $order, $payment_id, $payer_id );
 			$sale      = $execution["transactions"][0]["related_resources"][0]["sale"];
+
+			$installments_term = $payment['credit_financing_offered']['term'];
+			$installments_monthly_value = floatval($payment['credit_financing_offered']['monthly_payment']['value']);
+			$installments_formatted_monthly_value = strip_tags( wc_price( $installments_monthly_value ) );
+
 			update_post_meta( $order_id, 'wc_ppp_brasil_sale_id', $sale['id'] );
 			update_post_meta( $order_id, 'wc_ppp_brasil_sale', $sale );
-			$installments = 1;
-			if ( $response_data && $response_data['term'] && $response_data['term']['term'] ) {
-				$installments = $response_data['term']['term'];
-			}
-			update_post_meta( $order_id, 'wc_ppp_brasil_installments', $installments );
 			update_post_meta( $order_id, 'wc_ppp_brasil_sandbox', $this->mode );
+			update_post_meta( $order_id, 'wc_ppp_brasil_installments', $installments_term );
+			update_post_meta( $order_id, 'wc_ppp_brasil_monthly_value', $installments_monthly_value );
+
+			$order->set_payment_method_title(
+				sprintf(
+					_n( 
+						'Cartão de crédito (à vista)', 
+						'Cartão de crédito (%dx de %s)', 
+						$installments_term, 
+						'paypal-brasil-para-woocommerce' 
+					),
+					$installments_term,
+					$installments_formatted_monthly_value
+				)
+			);
+
+			// Add note for installments.
+			$installment_note = sprintf( 
+				_n( 
+					'Pagamento de %2$s à vista no PayPal.', 
+					'Pagamento parcelado em %d vezes de %s no PayPal.', 
+					$installments_term, 
+					'paypal-brasil-para-woocommerce'
+				), 
+				$installments_term, 
+				$installments_formatted_monthly_value
+			);
+
+			$order->add_order_note( $installment_note );
 
 			$result_success = false;
 			$payment_completed = false;
 
 			switch ( $sale['state'] ) {
 				case 'completed';
-					$order->add_order_note( sprintf( __( 'Pagamento processado pelo PayPal. ID da transação: %s', 'paypal-brasil-para-woocommerce' ), $sale['id'] ) );
+					$sale_id = $sale['id'];
+					$order->add_order_note( 
+						sprintf( 
+							__( 'Pagamento processado pelo PayPal. ID da transação: <a href="%s" target="_blank" rel="noopener">%s</a>.', 'paypal-brasil-para-woocommerce' ), 
+							$this->mode === 'sandbox' ? "https://www.sandbox.paypal.com/activity/payment/{$sale_id}" : "https://www.paypal.com/activity/payment/{$sale_id}",
+							$sale_id
+						) 
+					);
 					$result_success = true;
 					$payment_completed = true;
 					break;
@@ -388,10 +404,9 @@ class PayPal_Brasil_Plus_Gateway extends PayPal_Brasil_Gateway {
 
 			if ( $result_success ) {
 				// Add PayPal Discount
-				$charged_amount = floatval($execution['transactions'][0]['amount']['total']);
-				
-				if ( $order->get_total() !== $charged_amount ) {	
-					$this->wc_order_add_discount( $order_id, 'Desconto PayPal', $order->get_total() - $charged_amount );
+				$paypal_discount = floatval( $payment['credit_financing_offered']['discount_amount']['value']);
+				if ( $paypal_discount > 0 ) {	
+					$this->wc_order_add_discount( $order_id, 'Desconto PayPal', $paypal_discount );
 				}
 
 				// Remember user cards
@@ -689,20 +704,6 @@ class PayPal_Brasil_Plus_Gateway extends PayPal_Brasil_Gateway {
 		// Create the payment.
 		$payment = $order ? $this->create_payment_for_order( $data, $order, $data['dummy'] ) : $this->create_payment_for_cart( $data, $data['dummy'] );
 
-		// Get old session.
-		$old_session = WC()->session->get( 'wc-ppp-brasil-payment-id' );
-		// Check if old session exists and it's an array.
-		if ( $old_session && is_array( $old_session ) ) {
-			// If this execution time is later than old session time, we can ignore this request.
-			if ( $execution_time < $old_session['execution_time'] ) {
-				return $data;
-			}
-		}
-		// Add session with payment ID to check it later.
-		WC()->session->set( 'wc-ppp-brasil-payment-id', array(
-			'payment_id'     => $payment['id'],
-			'execution_time' => $execution_time,
-		) );
 		// Add the saved remember card, approval link and the payment URL.
 		$data['remembered_cards'] = is_user_logged_in() ? get_user_meta( get_current_user_id(), 'wc_ppp_brasil_remembered_cards', true ) : '';
 		$data['approval_url']     = $payment['links'][1]['href'];
@@ -759,6 +760,9 @@ class PayPal_Brasil_Plus_Gateway extends PayPal_Brasil_Gateway {
 
 		// Set total Total
 		$payment_data['transactions'][0]['amount']['total'] = paypal_brasil_money_format( $order->get_total() );
+
+		// Set the cart hash.
+		$payment_data['transactions'][0]['custom'] = $order->get_cart_hash();
 
 		// Check if is only digital items.
 		$only_digital_items = paypal_brasil_is_order_only_digital( $order );
@@ -879,6 +883,9 @@ class PayPal_Brasil_Plus_Gateway extends PayPal_Brasil_Gateway {
 
 		// Set total Total
 		$payment_data['transactions'][0]['amount']['total'] = paypal_brasil_money_format( $cart_totals['total'] );
+		
+		// Set cart hash
+		$payment_data['transactions'][0]['custom'] = WC()->cart->get_cart_hash();
 
 		// Check if is only digital items.
 		$only_digital_items = paypal_brasil_is_cart_only_digital();
@@ -936,12 +943,6 @@ class PayPal_Brasil_Plus_Gateway extends PayPal_Brasil_Gateway {
 		}
 
 		try {
-			// Get cart hash
-			$cart_hash = WC()->cart->get_cart_hash();
-
-			// Store cart hash in session
-			WC()->session->set( 'paypal_brasil-cart_hash', $cart_hash );
-
 			// Create the payment.
 			$result = $this->api->create_payment( $payment_data, array(), 'plus' );
 

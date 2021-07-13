@@ -21,6 +21,7 @@ try {
 }
 ?>
 <div id="wc-ppb-brasil-wrappers">
+	<?php echo $data['cart_hash']; ?>
 	<?php if ( $error ): ?>
         <p><?php echo $error; ?></p>
         <input type="hidden" id="wc-ppp-brasil-api-error-data" name="wc-ppp-brasil-data"
