@@ -151,12 +151,18 @@ Caso tenha alguma dúvida ou dificuldade na utilização do plugin acesse a seç
 = 1.4.0 =
 * Atualizado dependências.
 * Melhorado sistema de logs.
+* Adicionado informações de parcelamento do Checkout Transparente no pedido.
+* Corrigido possíveis problemas de sessão.
+* Adicionado suporte ao WooCommerce 5.5 e WordPress 5.8.
 
 == Upgrade Notice ==
 
 = 1.4.0 =
 * Atualizado dependências.
 * Melhorado sistema de logs.
+* Adicionado informações de parcelamento do Checkout Transparente no pedido.
+* Corrigido possíveis problemas de sessão.
+* Adicionado suporte ao WooCommerce 5.5 e WordPress 5.8.
 
 == Screenshots ==
 
