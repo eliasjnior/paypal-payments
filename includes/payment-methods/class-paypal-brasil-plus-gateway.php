@@ -355,8 +355,8 @@ class PayPal_Brasil_Plus_Gateway extends PayPal_Brasil_Gateway {
 			$order->set_payment_method_title(
 				sprintf(
 					_n( 
-						'Cartão de crédito (à vista)', 
-						'Cartão de crédito (%dx de %s)', 
+						'Cartão de Crédito (à vista) - PayPal', 
+						'Cartão de Crédito (%dx de %s) - PayPal', 
 						$installments_term, 
 						'paypal-brasil-para-woocommerce' 
 					),
