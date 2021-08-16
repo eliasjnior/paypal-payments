@@ -342,7 +342,7 @@ class PayPal_Brasil_Plus_Gateway extends PayPal_Brasil_Gateway {
 			$execution = $this->execute_payment( $order, $payment_id, $payer_id );
 			$sale      = $execution["transactions"][0]["related_resources"][0]["sale"];
 
-			$installments_term = $payment['credit_financing_offered']['term'];
+			$installments_term = intval($payment['credit_financing_offered']['term']);
 			$installments_monthly_value = floatval($payment['credit_financing_offered']['monthly_payment']['value']);
 			$installments_formatted_monthly_value = strip_tags( wc_price( $installments_monthly_value ) );
 
@@ -354,25 +354,19 @@ class PayPal_Brasil_Plus_Gateway extends PayPal_Brasil_Gateway {
 
 			$order->set_payment_method_title(
 				sprintf(
-					_n( 
-						'Cartão de Crédito (à vista) - PayPal', 
-						'Cartão de Crédito (%dx de %s) - PayPal', 
-						$installments_term, 
-						'paypal-brasil-para-woocommerce' 
-					),
+					$installments_term > 1 
+						? __('Cartão de Crédito (%dx de %s) - PayPal', 'paypal-brasil-para-woocommerce')
+						: __('Cartão de Crédito (à vista) - PayPal', 'paypal-brasil-para-woocommerce'),
 					$installments_term,
 					$installments_formatted_monthly_value
 				)
 			);
 
 			// Add note for installments.
-			$installment_note = sprintf( 
-				_n( 
-					'Pagamento de %2$s à vista no PayPal.', 
-					'Pagamento parcelado em %d vezes de %s no PayPal.', 
-					$installments_term, 
-					'paypal-brasil-para-woocommerce'
-				), 
+			$installment_note = sprintf(
+				$installments_term > 1 
+					? __('Pagamento parcelado em %d vezes de %s no PayPal.', 'paypal-brasil-para-woocommerce')
+					: __('Pagamento à vista no PayPal.', 'paypal-brasil-para-woocommerce'),
 				$installments_term, 
 				$installments_formatted_monthly_value
 			);
